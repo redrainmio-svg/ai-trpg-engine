@@ -1,7 +1,23 @@
-import { GoogleGenAI } from '@google/genai';
+export async function generateAIResponse(
+  prompt: string,
+  systemPrompt: string
+) {
+  const response = await fetch("/api/generate", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      prompt,
+      systemPrompt
+    })
+  });
 
-// Initialize the Gemini API client
-// Note: In Vite, process.env.GEMINI_API_KEY is injected via vite.config.ts define
-export const aiClient = new GoogleGenAI({ 
-  apiKey: process.env.GEMINI_API_KEY as string 
-});
+  if (!response.ok) {
+    throw new Error("AI request failed");
+  }
+
+  const data = await response.json();
+
+  return data.text;
+}
