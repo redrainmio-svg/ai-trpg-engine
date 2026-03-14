@@ -1,4 +1,4 @@
-import { aiClient } from '../ai/geminiClient';
+import { generateAIResponse } from "../ai/geminiClient";
 import { SYSTEM_PROMPT, buildTurnPrompt } from '../ai/prompts';
 import { StoryState } from '../types/StoryState';
 import { Type } from '@google/genai';
