@@ -1,7 +1,7 @@
 import express from "express";
 import cors from "cors";
-import path from "path";
 import dotenv from "dotenv";
+import path from "path";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 dotenv.config();
@@ -11,6 +11,7 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// ===== Gemini =====
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 // ===== AI API =====
@@ -19,14 +20,16 @@ app.post("/api/generate", async (req, res) => {
     const { prompt, systemPrompt } = req.body;
 
     const model = genAI.getGenerativeModel({
-      model: "gemini-1.5-pro",
+      model: "gemini-3.1-pro",
       systemInstruction: systemPrompt
     });
 
     const result = await model.generateContent(prompt);
 
+    const text = result.response.text();
+
     res.json({
-      text: result.response.text()
+      text
     });
 
   } catch (error) {
@@ -46,8 +49,9 @@ app.get("*", (req, res) => {
   res.sendFile(path.resolve(__dirname, "dist/index.html"));
 });
 
+// ===== Cloud Run Port =====
 const PORT = process.env.PORT || 8080;
 
-app.listen(PORT, () => {
+app.listen(PORT, "0.0.0.0", () => {
   console.log(`Server running on port ${PORT}`);
 });
