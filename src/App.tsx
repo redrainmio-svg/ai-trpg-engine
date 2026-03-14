@@ -20,7 +20,7 @@ function AppContent() {
       )}
       {currentPage === 'world' && <WorldPage onNext={() => setCurrentPage('character')} />}
       {currentPage === 'character' && <CharacterPage onNext={() => setCurrentPage('story')} />}
-      {currentPage === 'story' && <div>Story Page</div>}
+      {currentPage === 'story' && <StoryPage />}
     </div>
   );
 }
