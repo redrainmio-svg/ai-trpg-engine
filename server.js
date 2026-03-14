@@ -20,11 +20,21 @@ app.post("/api/generate", async (req, res) => {
     const { prompt, systemPrompt } = req.body;
 
     const model = genAI.getGenerativeModel({
-      model: "gemini-3.1-pro",
-      systemInstruction: systemPrompt
+      model: "gemini-2.5-pro"
     });
 
-    const result = await model.generateContent(prompt);
+    const result = await model.generateContent({
+      contents: [
+        {
+          role: "user",
+          parts: [{ text: prompt }]
+        }
+      ],
+      systemInstruction: {
+        role: "system",
+        parts: [{ text: systemPrompt }]
+      }
+    });
 
     const text = result.response.text();
 
@@ -34,8 +44,10 @@ app.post("/api/generate", async (req, res) => {
 
   } catch (error) {
     console.error("AI generation failed:", error);
+
     res.status(500).json({
-      error: "AI generation failed"
+      error: "AI generation failed",
+      detail: error.message
     });
   }
 });
