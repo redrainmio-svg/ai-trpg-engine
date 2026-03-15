@@ -27,7 +27,11 @@ export default function MessageBubble({
 
   if (isSystem) {
     return (
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex justify-center mb-6">
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        className="flex justify-center mb-6"
+      >
         <span className="text-xs text-slate-500 bg-slate-800/50 px-3 py-1 rounded-full">
           {message.content}
         </span>
@@ -47,12 +51,13 @@ export default function MessageBubble({
       className={`flex w-full ${isUser ? 'justify-end' : 'justify-start'} mb-8`}
     >
       <div
-        className={`relative group max-w-[90%] sm:max-w-[80%] rounded-2xl px-6 py-5 shadow-sm ${
+        className={`max-w-[90%] sm:max-w-[80%] rounded-2xl px-6 py-5 shadow-sm ${
           isUser
             ? 'bg-indigo-600/20 text-indigo-100 border border-indigo-500/30 rounded-br-sm'
             : 'bg-slate-800/80 text-slate-200 border border-slate-700 rounded-bl-sm font-serif text-base md:text-lg leading-relaxed tracking-wide shadow-lg shadow-black/20'
         }`}
       >
+
         {isUser && (
           <div className="text-xs text-indigo-400 mb-2 font-mono uppercase tracking-wider">
             你的行動
@@ -63,7 +68,7 @@ export default function MessageBubble({
         {editing ? (
           <div className="flex flex-col gap-2">
             <textarea
-              className="bg-slate-900 border border-slate-700 rounded p-2 text-sm"
+              className="bg-slate-900 border border-slate-700 rounded p-2 text-sm w-full"
               value={editText}
               onChange={(e) => setEditText(e.target.value)}
             />
@@ -81,15 +86,15 @@ export default function MessageBubble({
           </p>
         )}
 
-        {/* 操作按鈕 */}
+        {/* 操作按鈕（永遠顯示） */}
         {!editing && (
-          <div className="absolute -bottom-6 left-0 flex gap-2 opacity-0 group-hover:opacity-100 transition">
+          <div className="mt-3 flex gap-3 text-xs text-slate-400">
 
             {/* 編輯玩家訊息 */}
             {isUser && onEdit && (
               <button
                 onClick={() => setEditing(true)}
-                className="flex items-center gap-1 text-xs text-slate-400 hover:text-indigo-400"
+                className="flex items-center gap-1 hover:text-indigo-400"
               >
                 <Pencil size={14} />
                 編輯
@@ -100,7 +105,7 @@ export default function MessageBubble({
             {!isUser && onRegenerate && (
               <button
                 onClick={() => onRegenerate(index)}
-                className="flex items-center gap-1 text-xs text-slate-400 hover:text-indigo-400"
+                className="flex items-center gap-1 hover:text-indigo-400"
               >
                 <RotateCcw size={14} />
                 重生
@@ -111,7 +116,7 @@ export default function MessageBubble({
             {onRewind && (
               <button
                 onClick={() => onRewind(index)}
-                className="flex items-center gap-1 text-xs text-slate-400 hover:text-indigo-400"
+                className="flex items-center gap-1 hover:text-indigo-400"
               >
                 <CornerUpLeft size={14} />
                 回到這裡
