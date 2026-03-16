@@ -2,7 +2,6 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import path from "path";
-import { GoogleGenerativeAI } from "@google/generative-ai";
 
 dotenv.config();
 
@@ -11,32 +10,51 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// ===== Gemini =====
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-
-// ===== AI API =====
+// ===== OpenRouter API =====
 app.post("/api/generate", async (req, res) => {
   try {
     const { prompt, systemPrompt } = req.body;
 
-    const model = genAI.getGenerativeModel({
-      model: "gemini-2.5-pro"
-    });
-
-    const result = await model.generateContent({
-      contents: [
-        {
-          role: "user",
-          parts: [{ text: prompt }]
-        }
-      ],
-      systemInstruction: {
-        role: "system",
-        parts: [{ text: systemPrompt }]
+    const response = await fetch(
+      "https://openrouter.ai/api/v1/chat/completions",
+      {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${process.env.OPENROUTER_API_KEY}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          model: "nousresearch/hermes-4-70b",
+          messages: [
+            {
+              role: "system",
+              content: systemPrompt
+            },
+            {
+              role: "user",
+              content: prompt
+            }
+          ],
+          temperature: 0.9,
+          max_tokens: 300
+        })
       }
-    });
+    );
 
-    const text = result.response.text();
+    if (!response.ok) {
+      const text = await response.text();
+      console.error("OpenRouter request failed:", text);
+      throw new Error("OpenRouter request failed");
+    }
+
+    const data = await response.json();
+
+    const text = data?.choices?.[0]?.message?.content;
+
+    if (!text) {
+      console.error("Invalid OpenRouter response:", data);
+      throw new Error("Invalid AI response");
+    }
 
     res.json({
       text

@@ -1,4 +1,4 @@
-import { generateAIResponse } from "../ai/geminiClient";
+import { generateAIResponse } from "../ai/openrouterClient";
 import { SYSTEM_PROMPT, buildTurnPrompt } from "../ai/prompts";
 import { StoryState } from "../types/StoryState";
 
@@ -106,6 +106,35 @@ export const updateStoryState = (
     npcDatabase
   };
 };
+
+/* ===== 新增：生成遊戲開場 ===== */
+
+export const startStory = async (
+  state: StoryState
+): Promise<{ text: string; newState: StoryState }> => {
+
+  const prompt = buildTurnPrompt(state, "");
+
+  const responseText = await generateAIResponse(
+    prompt,
+    SYSTEM_PROMPT
+  );
+
+  const parsedResponse = parseAIResponse(responseText);
+
+  const newState = updateStoryState(state, parsedResponse);
+
+  const combinedText = parsedResponse.dialogue
+    ? `${parsedResponse.story}\n\n"${parsedResponse.dialogue}"`
+    : parsedResponse.story;
+
+  return {
+    text: combinedText,
+    newState
+  };
+};
+
+/* ===== 玩家行動處理 ===== */
 
 export const processUserAction = async (
   state: StoryState,
