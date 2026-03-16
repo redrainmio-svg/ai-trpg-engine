@@ -55,7 +55,7 @@ app.post("/api/generate", async (req, res) => {
           "X-Title": "AI TRPG Engine"
         },
         body: JSON.stringify({
-          model: "gryphe/mythomax-l2-13b",
+          model: "mistralai/mistral-small-creative",
           messages: [
             {
               role: "system",
@@ -67,7 +67,7 @@ app.post("/api/generate", async (req, res) => {
             }
           ],
           temperature: 0.9,
-          max_tokens: 300
+          max_tokens: 800
         })
       }
     );
