@@ -26,6 +26,20 @@ export default function StoryPage() {
     scrollToBottom();
   }, [state.history, isLoading]);
 
+  /**
+   * 清空 AI 記憶
+   */
+  const resetMemory = (baseState: any) => {
+
+    return {
+      ...baseState,
+      npcMemories: {},
+      npcRelationship: {},
+      questState: {}
+    };
+
+  };
+
   // ===== 存檔 =====
   const handleSave = () => {
 
@@ -134,10 +148,10 @@ export default function StoryPage() {
 
     const trimmedHistory = history.slice(0, index);
 
-    const updatedState = {
+    const updatedState = resetMemory({
       ...state,
       history: trimmedHistory
-    };
+    });
 
     setState(updatedState);
 
@@ -156,10 +170,10 @@ export default function StoryPage() {
 
     newHistory.push(editedMsg);
 
-    const updatedState = {
+    const updatedState = resetMemory({
       ...state,
       history: newHistory
-    };
+    });
 
     setState(updatedState);
 
@@ -171,10 +185,12 @@ export default function StoryPage() {
 
     const newHistory = state.history.slice(0, index + 1);
 
-    setState({
+    const newState = resetMemory({
       ...state,
       history: newHistory
     });
+
+    setState(newState);
   };
 
   return (

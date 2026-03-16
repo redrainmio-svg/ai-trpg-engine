@@ -16,13 +16,17 @@ export interface AIResponse {
 
 export const parseAIResponse = (responseText: string): AIResponse => {
   try {
+
     const cleanedText = responseText
       .replace(/```json\n?|\n?```/g, "")
       .trim();
 
     return JSON.parse(cleanedText) as AIResponse;
+
   } catch (error) {
+
     console.error("Failed to parse AI response as JSON:", error, responseText);
+
     throw new Error("AI 回應格式錯誤，無法解析為 JSON");
   }
 };
@@ -31,10 +35,12 @@ export const updateStoryState = (
   currentState: StoryState,
   aiResponse: AIResponse
 ): StoryState => {
+
   const newNpcMemories = { ...currentState.npcMemories };
 
   if (aiResponse.memories) {
     for (const [npc, memories] of Object.entries(aiResponse.memories)) {
+
       if (!newNpcMemories[npc]) {
         newNpcMemories[npc] = [];
       }
@@ -47,7 +53,9 @@ export const updateStoryState = (
   }
 
   return {
+
     ...currentState,
+
     currentLocation:
       aiResponse.state.currentLocation ||
       currentState.currentLocation,
@@ -98,7 +106,26 @@ export const processUserAction = async (
     };
 
   } catch (error) {
+
     console.error("Error generating story:", error);
+
     throw error;
   }
+};
+
+/* =============================
+   🔧 新增：清空 AI 記憶的 helper
+   ============================= */
+
+export const resetStoryMemory = (state: StoryState): StoryState => {
+
+  return {
+    ...state,
+
+    npcMemories: {},
+
+    npcRelationship: {},
+
+    questState: {}
+  };
 };
