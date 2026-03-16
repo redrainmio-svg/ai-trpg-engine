@@ -4,7 +4,7 @@ import ChatBox from '../components/ChatBox';
 import MessageBubble from '../components/MessageBubble';
 import StoryPanel from '../components/StoryPanel';
 import { processUserAction, startStory } from '../engine/storyEngine';
-import { Loader2, Save, Check, Upload } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { downloadSave, loadSaveFile } from '../lib/saveSystem';
 
@@ -26,9 +26,8 @@ export default function StoryPage() {
     scrollToBottom();
   }, [state.history, isLoading]);
 
-  /**
-   * ===== 新增：自動生成開場 =====
-   */
+  /* ===== 自動生成開場 ===== */
+
   useEffect(() => {
 
     if (state.history.length > 0) return;
@@ -69,9 +68,8 @@ export default function StoryPage() {
 
   }, []);
 
-  /**
-   * 清空 AI 記憶
-   */
+  /* ===== 清空 AI 記憶 ===== */
+
   const resetMemory = (baseState: any) => {
 
     return {
@@ -83,7 +81,8 @@ export default function StoryPage() {
 
   };
 
-  // ===== 存檔 =====
+  /* ===== 存檔 ===== */
+
   const handleSave = () => {
 
     const worldName = state.worldName || "ai-trpg-world";
@@ -94,7 +93,8 @@ export default function StoryPage() {
     setTimeout(() => setIsSaved(false), 2000);
   };
 
-  // ===== 讀檔 =====
+  /* ===== 讀檔 ===== */
+
   const handleLoadClick = () => {
     fileInputRef.current?.click();
   };
@@ -114,12 +114,12 @@ export default function StoryPage() {
     } catch (err) {
 
       alert("存檔讀取失敗");
-
       console.error(err);
     }
   };
 
-  // ===== 玩家輸入 =====
+  /* ===== 玩家輸入 ===== */
+
   const handleSendMessage = async (content: string) => {
 
     const userMsg = {
@@ -139,7 +139,8 @@ export default function StoryPage() {
     await generateAI(updatedState, content);
   };
 
-  // ===== AI生成 =====
+  /* ===== AI生成 ===== */
+
   const generateAI = async (currentState: any, action: string) => {
 
     setIsLoading(true);
@@ -182,68 +183,64 @@ export default function StoryPage() {
     }
   };
 
-// ===== 重新生成 =====
-const handleRegenerate = async (index: number) => {
+  /* ===== 重新生成 ===== */
 
-  const history = [...state.history];
+  const handleRegenerate = async (index: number) => {
 
-  // ===== 開場白重生 =====
-  if (index === 0) {
+    const history = [...state.history];
+
+    if (index === 0) {
+
+      const updatedState = resetMemory({
+        ...state,
+        history: []
+      });
+
+      setState(updatedState);
+
+      setIsLoading(true);
+
+      try {
+
+        const { text, newState } = await startStory(updatedState);
+
+        const aiMsg = {
+          id: Date.now().toString(),
+          role: 'model' as const,
+          content: text,
+          timestamp: Date.now()
+        };
+
+        setState({
+          ...newState,
+          history: [aiMsg]
+        });
+
+      } finally {
+
+        setIsLoading(false);
+
+      }
+
+      return;
+    }
+
+    const lastUser = history[index - 1];
+
+    const trimmedHistory = history.slice(0, index);
 
     const updatedState = resetMemory({
       ...state,
-      history: []
+      history: trimmedHistory
     });
 
     setState(updatedState);
 
-    setIsLoading(true);
+    await generateAI(updatedState, lastUser.content);
+  };
 
-    try {
+  /* ===== 編輯訊息 ===== */
 
-      const { text, newState } = await startStory(updatedState);
-
-      const aiMsg = {
-        id: Date.now().toString(),
-        role: 'model' as const,
-        content: text,
-        timestamp: Date.now()
-      };
-
-      setState({
-        ...newState,
-        history: [aiMsg]
-      });
-
-    } catch (error) {
-
-      console.error("Opening regenerate failed:", error);
-
-    } finally {
-
-      setIsLoading(false);
-
-    }
-
-    return;
-  }
-
-  // ===== 正常重生 =====
-
-  const lastUser = history[index - 1];
-
-  const trimmedHistory = history.slice(0, index);
-
-  const updatedState = resetMemory({
-    ...state,
-    history: trimmedHistory
-  });
-
-  setState(updatedState);
-
-  await generateAI(updatedState, lastUser.content);
-};
-  // ===== 編輯訊息 =====
   const handleEdit = async (index: number, newContent: string) => {
 
     const newHistory = state.history.slice(0, index);
@@ -265,7 +262,8 @@ const handleRegenerate = async (index: number) => {
     await generateAI(updatedState, newContent);
   };
 
-  // ===== 回到這裡 =====
+  /* ===== 回到這裡 ===== */
+
   const handleRewind = (index: number) => {
 
     const newHistory = state.history.slice(0, index + 1);
@@ -300,6 +298,26 @@ const handleRegenerate = async (index: number) => {
                 onRewind={handleRewind}
               />
             ))}
+
+            {/* ===== AI 選項系統 ===== */}
+
+            {state.choices && state.choices.length > 0 && !isLoading && (
+              <div className="flex flex-wrap gap-3 mt-6">
+
+                {state.choices.map((choice: string, i: number) => (
+
+                  <button
+                    key={i}
+                    onClick={() => handleSendMessage(choice)}
+                    className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 rounded-lg text-sm transition"
+                  >
+                    {choice}
+                  </button>
+
+                ))}
+
+              </div>
+            )}
 
             {isLoading && (
               <motion.div
