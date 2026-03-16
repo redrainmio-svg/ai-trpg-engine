@@ -11,8 +11,12 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// ===== OpenRouter API =====
+/* ================================
+   OpenRouter API
+================================ */
+
 app.post("/api/generate", async (req, res) => {
+
   try {
 
     const { prompt, systemPrompt } = req.body;
@@ -25,16 +29,20 @@ app.post("/api/generate", async (req, res) => {
 
     const apiKey = process.env.OPENROUTER_API_KEY;
 
+    /* ===== API KEY 檢查 ===== */
+
     if (!apiKey) {
-      console.error("Missing OPENROUTER_API_KEY");
+
+      console.error("OPENROUTER_API_KEY not set");
 
       return res.status(500).json({
         error: "Server configuration error",
         detail: "OPENROUTER_API_KEY not set"
       });
+
     }
 
-    console.log("Sending request to OpenRouter...");
+    console.log("OpenRouter request starting...");
 
     const response = await fetch(
       "https://openrouter.ai/api/v1/chat/completions",
@@ -64,7 +72,8 @@ app.post("/api/generate", async (req, res) => {
       }
     );
 
-    // ===== OpenRouter錯誤處理 =====
+    /* ===== OpenRouter 錯誤 ===== */
+
     if (!response.ok) {
 
       const text = await response.text();
@@ -75,6 +84,7 @@ app.post("/api/generate", async (req, res) => {
         error: "OpenRouter request failed",
         detail: text
       });
+
     }
 
     const data = await response.json();
@@ -91,6 +101,7 @@ app.post("/api/generate", async (req, res) => {
         error: "Invalid AI response",
         detail: data
       });
+
     }
 
     res.json({
@@ -107,9 +118,12 @@ app.post("/api/generate", async (req, res) => {
     });
 
   }
+
 });
 
-// ===== Serve React build =====
+/* ================================
+   Serve React build
+================================ */
 
 const __dirname = new URL(".", import.meta.url).pathname;
 
@@ -119,7 +133,9 @@ app.get("*", (req, res) => {
   res.sendFile(path.resolve(__dirname, "dist/index.html"));
 });
 
-// ===== Cloud Run Port =====
+/* ================================
+   Cloud Run Port
+================================ */
 
 const PORT = process.env.PORT || 8080;
 
