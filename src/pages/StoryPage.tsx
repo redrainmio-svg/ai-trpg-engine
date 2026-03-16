@@ -85,7 +85,7 @@ export default function StoryPage() {
 
   const handleSave = () => {
 
-    const worldName = state.worldName || "ai-trpg-world";
+    const worldName = state.world?.name || "ai-trpg-world";
 
     downloadSave(worldName, state);
 
@@ -284,6 +284,42 @@ export default function StoryPage() {
 
       <div className="flex-1 flex flex-col h-full relative shadow-[-10px_0_30px_rgba(0,0,0,0.5)] z-10">
 
+        {/* ===== 存檔讀檔按鈕 ===== */}
+
+        <div className="absolute top-4 right-6 flex gap-3 z-20">
+
+          <button
+            onClick={handleSave}
+            className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 rounded text-sm shadow"
+          >
+            💾 存檔
+          </button>
+
+          <button
+            onClick={handleLoadClick}
+            className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 rounded text-sm shadow"
+          >
+            📂 讀檔
+          </button>
+
+          {isSaved && (
+            <span className="text-emerald-400 text-xs flex items-center">
+              已存檔
+            </span>
+          )}
+
+        </div>
+
+        {/* 隱藏讀檔 input */}
+
+        <input
+          type="file"
+          ref={fileInputRef}
+          onChange={handleLoadFile}
+          accept=".json"
+          className="hidden"
+        />
+
         <div className="flex-1 overflow-y-auto p-4 sm:p-6 pt-20 scroll-smooth custom-scrollbar">
 
           <div className="max-w-full md:max-w-7xl mx-auto px-4 md:px-6">
@@ -298,8 +334,6 @@ export default function StoryPage() {
                 onRewind={handleRewind}
               />
             ))}
-
-            {/* ===== AI 選項系統 ===== */}
 
             {state.choices && state.choices.length > 0 && !isLoading && (
               <div className="flex flex-wrap gap-3 mt-6">
