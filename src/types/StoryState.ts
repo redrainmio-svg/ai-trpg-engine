@@ -45,9 +45,21 @@ export interface StoryState {
   questState: Record<string, string>;
 
   /**
-   * NPC 記憶（AI 使用）
+   * NPC 長期記憶（AI 使用）
    */
   npcMemories: Record<string, string[]>;
+
+  /**
+   * 場景 NPC 記錄
+   * 用於防止 AI 在同一場景隨機創造新角色
+   *
+   * 例：
+   * {
+   *   "酒館": ["卡爾", "莉亞"],
+   *   "王城": ["艾德里安", "衛兵隊長"]
+   * }
+   */
+  sceneNPCs: Record<string, string[]>;
 
   /**
    * 聊天歷史
@@ -61,8 +73,14 @@ export interface StoryState {
 }
 
 /**
- * 清空 AI 記憶（用於：
- * 編輯 / 重生 / 回到這裡）
+ * 清空 AI 記憶
+ *
+ * 用於：
+ * 編輯 / 重生 / 回到這裡
+ *
+ * 注意：
+ * sceneNPCs 不會清除
+ * 因為它屬於世界資料
  */
 export const clearStoryMemory = (state: StoryState): StoryState => {
 
