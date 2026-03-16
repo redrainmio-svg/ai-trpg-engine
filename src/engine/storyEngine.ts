@@ -25,9 +25,9 @@ export const parseAIResponse = (responseText: string): AIResponse => {
 
   } catch (error) {
 
-    console.error("Failed to parse AI response as JSON:", error, responseText);
+    console.error("Failed to parse AI response:", error);
 
-    throw new Error("AI 回應格式錯誤，無法解析為 JSON");
+    throw new Error("AI JSON parse error");
   }
 };
 
@@ -37,8 +37,19 @@ export const updateStoryState = (
 ): StoryState => {
 
   const newNpcMemories = { ...currentState.npcMemories };
+  const sceneNPCs = { ...currentState.sceneNPCs };
+  const npcDatabase = { ...currentState.npcDatabase };
+
+  const currentLocation =
+    aiResponse.state.currentLocation ||
+    currentState.currentLocation;
+
+  if (!sceneNPCs[currentLocation]) {
+    sceneNPCs[currentLocation] = [];
+  }
 
   if (aiResponse.memories) {
+
     for (const [npc, memories] of Object.entries(aiResponse.memories)) {
 
       if (!newNpcMemories[npc]) {
@@ -49,16 +60,30 @@ export const updateStoryState = (
         ...newNpcMemories[npc],
         ...memories
       ];
+
+      if (!sceneNPCs[currentLocation].includes(npc)) {
+        sceneNPCs[currentLocation].push(npc);
+      }
+
+      /* 新 NPC 自動建立資料庫 */
+      if (!npcDatabase[npc]) {
+
+        npcDatabase[npc] = {
+          name: npc,
+          location: currentLocation
+        };
+
+      }
+
     }
+
   }
 
   return {
 
     ...currentState,
 
-    currentLocation:
-      aiResponse.state.currentLocation ||
-      currentState.currentLocation,
+    currentLocation,
 
     currentChapter:
       aiResponse.state.currentChapter ||
@@ -74,7 +99,11 @@ export const updateStoryState = (
       ...aiResponse.state.questState
     },
 
-    npcMemories: newNpcMemories
+    npcMemories: newNpcMemories,
+
+    sceneNPCs,
+
+    npcDatabase
   };
 };
 
@@ -85,47 +114,29 @@ export const processUserAction = async (
 
   const prompt = buildTurnPrompt(state, action);
 
-  try {
+  const responseText = await generateAIResponse(
+    prompt,
+    SYSTEM_PROMPT
+  );
 
-    const responseText = await generateAIResponse(
-      prompt,
-      SYSTEM_PROMPT
-    );
+  const parsedResponse = parseAIResponse(responseText);
 
-    const parsedResponse = parseAIResponse(responseText);
+  const newState = updateStoryState(state, parsedResponse);
 
-    const newState = updateStoryState(state, parsedResponse);
+  const combinedText = parsedResponse.dialogue
+    ? `${parsedResponse.story}\n\n"${parsedResponse.dialogue}"`
+    : parsedResponse.story;
 
-    const combinedText = parsedResponse.dialogue
-      ? `${parsedResponse.story}\n\n"${parsedResponse.dialogue}"`
-      : parsedResponse.story;
-
-    return {
-      text: combinedText,
-      newState
-    };
-
-  } catch (error) {
-
-    console.error("Error generating story:", error);
-
-    throw error;
-  }
+  return {
+    text: combinedText,
+    newState
+  };
 };
-
-/* =============================
-   🔧 新增：清空 AI 記憶的 helper
-   ============================= */
 
 export const resetStoryMemory = (state: StoryState): StoryState => {
 
   return {
     ...state,
-
-    npcMemories: {},
-
-    npcRelationship: {},
-
-    questState: {}
+    npcMemories: {}
   };
 };
