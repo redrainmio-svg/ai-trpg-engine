@@ -55,7 +55,7 @@ app.post("/api/generate", async (req, res) => {
           "X-Title": "AI TRPG Engine"
         },
         body: JSON.stringify({
-          model: "mistralai/mistral-small-creative",
+          model: "cognitivecomputations/dolphin-mistral-24b",
           messages: [
             {
               role: "system",
