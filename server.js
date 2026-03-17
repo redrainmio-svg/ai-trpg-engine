@@ -67,7 +67,11 @@ app.post("/api/generate", async (req, res) => {
             }
           ],
           temperature: 0.9,
-          max_tokens: 800
+          top_p: 0.9,
+          presence_penalty: 0.4,
+          frequency_penalty: 0.4,
+
+          max_tokens: 1000
         })
       }
     );
