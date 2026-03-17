@@ -52,7 +52,6 @@ function isLooping(newText: string, history: any[]): boolean {
   if (!history || history.length === 0) return false;
 
   const last = history[history.length - 1]?.content || "";
-
   if (!last) return false;
 
   if (newText.trim() === last.trim()) return true;
@@ -62,20 +61,16 @@ function isLooping(newText: string, history: any[]): boolean {
 }
 
 /* ============================= */
-/* 🔥 安全 JSON 解析（關鍵修正） */
+/* 🔥 安全 JSON 解析 */
 /* ============================= */
 
 export const safeParseAIResponse = (responseText: string) => {
-
   try {
-
-    // 🔥 1. 去掉 markdown code block
     let cleaned = responseText
       .replace(/```json/gi, "")
       .replace(/```/g, "")
       .trim();
 
-    // 🔥 2. 強制抓 JSON 區塊（超關鍵）
     const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
 
     if (!jsonMatch) {
@@ -85,8 +80,8 @@ export const safeParseAIResponse = (responseText: string) => {
     const parsed = JSON.parse(jsonMatch[0]);
 
     return {
-      story: typeof parsed.story === "string" ? parsed.story : "（AI輸出異常）",
-      dialogue: typeof parsed.dialogue === "string" ? parsed.dialogue : "",
+      story: parsed.story,
+      dialogue: parsed.dialogue,
       state: parsed.state || {},
       memories: parsed.memories || {},
       choices: Array.isArray(parsed.choices) ? parsed.choices : []
@@ -106,6 +101,27 @@ export const safeParseAIResponse = (responseText: string) => {
 
   }
 };
+
+/* ============================= */
+/* 🔥 安全文字處理（核心修復） */
+/* ============================= */
+
+function safeText(story: any, dialogue: any): string {
+
+  const safeStory =
+    typeof story === "string"
+      ? story
+      : JSON.stringify(story ?? "");
+
+  const safeDialogue =
+    typeof dialogue === "string"
+      ? dialogue
+      : "";
+
+  return safeDialogue
+    ? `${safeStory}\n\n"${safeDialogue}"`
+    : safeStory;
+}
 
 /* ============================= */
 /* 更新狀態 */
@@ -174,7 +190,7 @@ export const updateStoryState = (
     sceneNPCs,
     npcDatabase
   };
-};
+}
 
 /* ============================= */
 /* AI 呼叫 */
@@ -208,14 +224,10 @@ export const startStory = async (state: StoryState) => {
   while (retry < 3) {
 
     const responseText = await callAI(state, "", prompt);
-
     const parsed = safeParseAIResponse(responseText);
-
     const newState = updateStoryState(state, parsed);
 
-    const text = parsed.dialogue
-      ? `${parsed.story}\n\n"${parsed.dialogue}"`
-      : parsed.story;
+    const text = safeText(parsed.story, parsed.dialogue);
 
     if (!isLooping(text, [])) {
       return { text, newState };
@@ -246,14 +258,10 @@ export const processUserAction = async (
   while (retry < 3) {
 
     const responseText = await callAI(state, action, prompt);
-
     const parsed = safeParseAIResponse(responseText);
-
     const newState = updateStoryState(state, parsed);
 
-    const text = parsed.dialogue
-      ? `${parsed.story}\n\n"${parsed.dialogue}"`
-      : parsed.story;
+    const text = safeText(parsed.story, parsed.dialogue);
 
     if (!isLooping(text, state.history)) {
       return { text, newState };
