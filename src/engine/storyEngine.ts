@@ -3,45 +3,38 @@ import { SYSTEM_PROMPT, buildTurnPrompt } from "../ai/prompts";
 import { StoryState } from "../types/StoryState";
 
 /* ============================= */
-/* 🔥 模型選擇（成本優化核心） */
+/* 模型選擇 */
 /* ============================= */
 
 function chooseModel(state: StoryState, action: string): string {
-
-  // 開場 → 高品質
   if (!state.history || state.history.length < 2) {
     return "deepseek/deepseek-chat-v3";
   }
 
-  // 成人內容
   if (state.contentMode === "mature") {
     return "deepseek/deepseek-chat-v3";
   }
 
-  // 關鍵事件
   if (action.includes("戰鬥") || action.includes("高潮") || action.includes("重要")) {
     return "deepseek/deepseek-chat-v3";
   }
 
-  // 預設 → 省錢模型
   return "mistralai/mistral-small-creative";
 }
 
 /* ============================= */
-/* 🔥 動態 tokens 控制 */
+/* 動態 tokens */
 /* ============================= */
 
 function getMaxTokens(action: string): number {
-
-  if (action.includes("戰鬥")) return 300;
-  if (action.includes("對話")) return 400;
+  if (action.includes("戰鬥")) return 400;
+  if (action.includes("對話")) return 600;
   if (action.includes("情色")) return 1200;
-
   return 600;
 }
 
 /* ============================= */
-/* 🔥 防循環系統 */
+/* 防循環 */
 /* ============================= */
 
 function similarity(a: string, b: string): number {
@@ -59,6 +52,7 @@ function isLooping(newText: string, history: any[]): boolean {
   if (!history || history.length === 0) return false;
 
   const last = history[history.length - 1]?.content || "";
+
   if (!last) return false;
 
   if (newText.trim() === last.trim()) return true;
@@ -68,22 +62,39 @@ function isLooping(newText: string, history: any[]): boolean {
 }
 
 /* ============================= */
-/* JSON 解析 */
+/* 🔥 安全 JSON 解析（關鍵修正） */
 /* ============================= */
 
-export const parseAIResponse = (responseText: string) => {
+export const safeParseAIResponse = (responseText: string) => {
+
   try {
 
-    const cleanedText = responseText
+    const cleaned = responseText
       .replace(/```json\n?|\n?```/g, "")
       .trim();
 
-    return JSON.parse(cleanedText);
+    const parsed = JSON.parse(cleaned);
+
+    // 🔥 基本結構保護
+    return {
+      story: parsed.story || "（AI輸出缺失，已修正）",
+      dialogue: parsed.dialogue || "",
+      state: parsed.state || {},
+      memories: parsed.memories || {},
+      choices: parsed.choices || []
+    };
 
   } catch (error) {
 
-    console.error("JSON parse error:", error);
-    throw new Error("AI JSON parse error");
+    console.error("❌ JSON parse failed:", responseText);
+
+    return {
+      story: "世界線出現短暫混亂，但很快恢復了正常……",
+      dialogue: "",
+      state: {},
+      memories: {},
+      choices: []
+    };
 
   }
 };
@@ -102,7 +113,7 @@ export const updateStoryState = (
   const npcDatabase = { ...currentState.npcDatabase };
 
   const currentLocation =
-    aiResponse.state.currentLocation ||
+    aiResponse.state?.currentLocation ||
     currentState.currentLocation;
 
   if (!sceneNPCs[currentLocation]) {
@@ -119,7 +130,7 @@ export const updateStoryState = (
 
       newNpcMemories[npc] = [
         ...newNpcMemories[npc],
-        ...memories
+        ...(memories as string[])
       ];
 
       if (!sceneNPCs[currentLocation].includes(npc)) {
@@ -141,15 +152,15 @@ export const updateStoryState = (
     ...currentState,
     currentLocation,
     currentChapter:
-      aiResponse.state.currentChapter ||
+      aiResponse.state?.currentChapter ||
       currentState.currentChapter,
     npcRelationship: {
       ...currentState.npcRelationship,
-      ...aiResponse.state.npcRelationship
+      ...(aiResponse.state?.npcRelationship || {})
     },
     questState: {
       ...currentState.questState,
-      ...aiResponse.state.questState
+      ...(aiResponse.state?.questState || {})
     },
     npcMemories: newNpcMemories,
     sceneNPCs,
@@ -158,7 +169,7 @@ export const updateStoryState = (
 };
 
 /* ============================= */
-/* AI 呼叫統一入口 */
+/* AI 呼叫 */
 /* ============================= */
 
 async function callAI(state: StoryState, action: string, prompt: string) {
@@ -166,7 +177,7 @@ async function callAI(state: StoryState, action: string, prompt: string) {
   const model = chooseModel(state, action);
   const maxTokens = getMaxTokens(action);
 
-  console.log("🧠 使用模型:", model, "tokens:", maxTokens);
+  console.log("🧠 model:", model, "tokens:", maxTokens);
 
   return generateAIResponse(
     prompt,
@@ -188,31 +199,25 @@ export const startStory = async (state: StoryState) => {
 
   while (retry < 3) {
 
-    try {
+    const responseText = await callAI(state, "", prompt);
 
-      const responseText = await callAI(state, "", prompt);
+    const parsed = safeParseAIResponse(responseText);
 
-      const parsed = parseAIResponse(responseText);
+    const newState = updateStoryState(state, parsed);
 
-      const newState = updateStoryState(state, parsed);
+    const text = parsed.dialogue
+      ? `${parsed.story}\n\n"${parsed.dialogue}"`
+      : parsed.story;
 
-      const text = parsed.dialogue
-        ? `${parsed.story}\n\n"${parsed.dialogue}"`
-        : parsed.story;
-
-      if (!isLooping(text, [])) {
-        return { text, newState };
-      }
-
-    } catch (e) {
-      console.warn("Start retry:", e);
+    if (!isLooping(text, [])) {
+      return { text, newState };
     }
 
     retry++;
   }
 
   return {
-    text: "故事的開端似乎受到干擾，但新的命運正在展開……",
+    text: "故事的開端略顯混亂，但命運仍在推進……",
     newState: state
   };
 };
@@ -232,35 +237,26 @@ export const processUserAction = async (
 
   while (retry < 3) {
 
-    try {
+    const responseText = await callAI(state, action, prompt);
 
-      const responseText = await callAI(state, action, prompt);
+    const parsed = safeParseAIResponse(responseText);
 
-      const parsed = parseAIResponse(responseText);
+    const newState = updateStoryState(state, parsed);
 
-      const newState = updateStoryState(state, parsed);
+    const text = parsed.dialogue
+      ? `${parsed.story}\n\n"${parsed.dialogue}"`
+      : parsed.story;
 
-      const text = parsed.dialogue
-        ? `${parsed.story}\n\n"${parsed.dialogue}"`
-        : parsed.story;
-
-      if (!isLooping(text, state.history)) {
-        return { text, newState };
-      }
-
-      console.warn("⚠️ loop detected, retry...");
-
-    } catch (e) {
-
-      console.warn("retry:", e);
-
+    if (!isLooping(text, state.history)) {
+      return { text, newState };
     }
 
+    console.warn("⚠️ loop detected, retry...");
     retry++;
   }
 
   return {
-    text: "局勢突然發生劇烈變化，一個新的事件打破了僵局。",
+    text: "局勢忽然產生變化，一個新的契機打破了僵局。",
     newState: {
       ...state,
       currentChapter: state.currentChapter + 1
