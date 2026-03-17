@@ -2,16 +2,42 @@ import { generateAIResponse } from "../ai/openrouterClient";
 import { SYSTEM_PROMPT, buildTurnPrompt } from "../ai/prompts";
 import { StoryState } from "../types/StoryState";
 
-export interface AIResponse {
-  story: string;
-  dialogue: string;
-  state: {
-    currentLocation: string;
-    currentChapter: number;
-    npcRelationship: Record<string, number>;
-    questState: Record<string, string>;
-  };
-  memories?: Record<string, string[]>;
+/* ============================= */
+/* 🔥 模型選擇（成本優化核心） */
+/* ============================= */
+
+function chooseModel(state: StoryState, action: string): string {
+
+  // 開場 → 高品質
+  if (!state.history || state.history.length < 2) {
+    return "deepseek/deepseek-chat-v3";
+  }
+
+  // 成人內容
+  if (state.contentMode === "mature") {
+    return "deepseek/deepseek-chat-v3";
+  }
+
+  // 關鍵事件
+  if (action.includes("戰鬥") || action.includes("高潮") || action.includes("重要")) {
+    return "deepseek/deepseek-chat-v3";
+  }
+
+  // 預設 → 省錢模型
+  return "mistralai/mistral-small-creative";
+}
+
+/* ============================= */
+/* 🔥 動態 tokens 控制 */
+/* ============================= */
+
+function getMaxTokens(action: string): number {
+
+  if (action.includes("戰鬥")) return 300;
+  if (action.includes("對話")) return 400;
+  if (action.includes("情色")) return 1200;
+
+  return 600;
 }
 
 /* ============================= */
@@ -33,13 +59,9 @@ function isLooping(newText: string, history: any[]): boolean {
   if (!history || history.length === 0) return false;
 
   const last = history[history.length - 1]?.content || "";
-
   if (!last) return false;
 
-  // 完全重複
   if (newText.trim() === last.trim()) return true;
-
-  // 高相似
   if (similarity(newText, last) > 0.8) return true;
 
   return false;
@@ -49,18 +71,18 @@ function isLooping(newText: string, history: any[]): boolean {
 /* JSON 解析 */
 /* ============================= */
 
-export const parseAIResponse = (responseText: string): AIResponse => {
+export const parseAIResponse = (responseText: string) => {
   try {
 
     const cleanedText = responseText
       .replace(/```json\n?|\n?```/g, "")
       .trim();
 
-    return JSON.parse(cleanedText) as AIResponse;
+    return JSON.parse(cleanedText);
 
   } catch (error) {
 
-    console.error("Failed to parse AI response:", error);
+    console.error("JSON parse error:", error);
     throw new Error("AI JSON parse error");
 
   }
@@ -72,7 +94,7 @@ export const parseAIResponse = (responseText: string): AIResponse => {
 
 export const updateStoryState = (
   currentState: StoryState,
-  aiResponse: AIResponse
+  aiResponse: any
 ): StoryState => {
 
   const newNpcMemories = { ...currentState.npcMemories };
@@ -116,40 +138,49 @@ export const updateStoryState = (
   }
 
   return {
-
     ...currentState,
-
     currentLocation,
-
     currentChapter:
       aiResponse.state.currentChapter ||
       currentState.currentChapter,
-
     npcRelationship: {
       ...currentState.npcRelationship,
       ...aiResponse.state.npcRelationship
     },
-
     questState: {
       ...currentState.questState,
       ...aiResponse.state.questState
     },
-
     npcMemories: newNpcMemories,
-
     sceneNPCs,
-
     npcDatabase
   };
 };
 
 /* ============================= */
-/* 開場（防loop版） */
+/* AI 呼叫統一入口 */
 /* ============================= */
 
-export const startStory = async (
-  state: StoryState
-): Promise<{ text: string; newState: StoryState }> => {
+async function callAI(state: StoryState, action: string, prompt: string) {
+
+  const model = chooseModel(state, action);
+  const maxTokens = getMaxTokens(action);
+
+  console.log("🧠 使用模型:", model, "tokens:", maxTokens);
+
+  return generateAIResponse(
+    prompt,
+    SYSTEM_PROMPT,
+    model,
+    maxTokens
+  );
+}
+
+/* ============================= */
+/* 開場 */
+/* ============================= */
+
+export const startStory = async (state: StoryState) => {
 
   const prompt = buildTurnPrompt(state, "");
 
@@ -159,45 +190,41 @@ export const startStory = async (
 
     try {
 
-      const responseText = await generateAIResponse(
-        prompt,
-        SYSTEM_PROMPT
-      );
+      const responseText = await callAI(state, "", prompt);
 
-      const parsedResponse = parseAIResponse(responseText);
+      const parsed = parseAIResponse(responseText);
 
-      const newState = updateStoryState(state, parsedResponse);
+      const newState = updateStoryState(state, parsed);
 
-      const combinedText = parsedResponse.dialogue
-        ? `${parsedResponse.story}\n\n"${parsedResponse.dialogue}"`
-        : parsedResponse.story;
+      const text = parsed.dialogue
+        ? `${parsed.story}\n\n"${parsed.dialogue}"`
+        : parsed.story;
 
-      if (!isLooping(combinedText, [])) {
-        return { text: combinedText, newState };
+      if (!isLooping(text, [])) {
+        return { text, newState };
       }
 
     } catch (e) {
-      console.warn("StartStory retry:", e);
+      console.warn("Start retry:", e);
     }
 
     retry++;
   }
 
-  /* fallback */
   return {
-    text: "故事的開端似乎被某種力量干擾，但新的命運正在展開……",
+    text: "故事的開端似乎受到干擾，但新的命運正在展開……",
     newState: state
   };
 };
 
 /* ============================= */
-/* 玩家行動（防loop版） */
+/* 玩家行動 */
 /* ============================= */
 
 export const processUserAction = async (
   state: StoryState,
   action: string
-): Promise<{ text: string; newState: StoryState }> => {
+) => {
 
   const prompt = buildTurnPrompt(state, action);
 
@@ -207,38 +234,33 @@ export const processUserAction = async (
 
     try {
 
-      const responseText = await generateAIResponse(
-        prompt,
-        SYSTEM_PROMPT
-      );
+      const responseText = await callAI(state, action, prompt);
 
-      const parsedResponse = parseAIResponse(responseText);
+      const parsed = parseAIResponse(responseText);
 
-      const newState = updateStoryState(state, parsedResponse);
+      const newState = updateStoryState(state, parsed);
 
-      const combinedText = parsedResponse.dialogue
-        ? `${parsedResponse.story}\n\n"${parsedResponse.dialogue}"`
-        : parsedResponse.story;
+      const text = parsed.dialogue
+        ? `${parsed.story}\n\n"${parsed.dialogue}"`
+        : parsed.story;
 
-      // 🔥 防循環
-      if (!isLooping(combinedText, state.history)) {
-        return { text: combinedText, newState };
+      if (!isLooping(text, state.history)) {
+        return { text, newState };
       }
 
-      console.warn("⚠️ 偵測到循環，重新生成...");
+      console.warn("⚠️ loop detected, retry...");
 
     } catch (e) {
 
-      console.warn("Process retry:", e);
+      console.warn("retry:", e);
 
     }
 
     retry++;
   }
 
-  /* fallback 防卡死 */
   return {
-    text: "局勢突然發生變化，一個突如其來的事件打破了原本的循環。",
+    text: "局勢突然發生劇烈變化，一個新的事件打破了僵局。",
     newState: {
       ...state,
       currentChapter: state.currentChapter + 1
@@ -251,10 +273,8 @@ export const processUserAction = async (
 /* ============================= */
 
 export const resetStoryMemory = (state: StoryState): StoryState => {
-
   return {
     ...state,
     npcMemories: {}
   };
-
 };
