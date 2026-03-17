@@ -8,6 +8,20 @@ import { Loader2 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { downloadSave, loadSaveFile } from '../lib/saveSystem';
 
+/* ============================= */
+/* 🔥 安全轉字串（核心） */
+/* ============================= */
+
+function safeContent(content: any): string {
+  if (typeof content === 'string') return content;
+  if (content === null || content === undefined) return "";
+  try {
+    return JSON.stringify(content);
+  } catch {
+    return String(content);
+  }
+}
+
 export default function StoryPage() {
 
   const { state, setState } = useStoryStore();
@@ -43,7 +57,7 @@ export default function StoryPage() {
         const aiMsg = {
           id: Date.now().toString(),
           role: 'model' as const,
-          content: text,
+          content: safeContent(text),
           timestamp: Date.now()
         };
 
@@ -125,7 +139,7 @@ export default function StoryPage() {
     const userMsg = {
       id: Date.now().toString(),
       role: 'user' as const,
-      content,
+      content: safeContent(content),
       timestamp: Date.now()
     };
 
@@ -152,7 +166,7 @@ export default function StoryPage() {
       const aiMsg = {
         id: Date.now().toString(),
         role: 'model' as const,
-        content: text,
+        content: safeContent(text),
         timestamp: Date.now()
       };
 
@@ -207,7 +221,7 @@ export default function StoryPage() {
         const aiMsg = {
           id: Date.now().toString(),
           role: 'model' as const,
-          content: text,
+          content: safeContent(text),
           timestamp: Date.now()
         };
 
@@ -236,7 +250,7 @@ export default function StoryPage() {
 
     setState(updatedState);
 
-    await generateAI(updatedState, lastUser.content);
+    await generateAI(updatedState, safeContent(lastUser.content));
   };
 
   /* ===== 編輯訊息 ===== */
@@ -247,7 +261,7 @@ export default function StoryPage() {
 
     const editedMsg = {
       ...state.history[index],
-      content: newContent
+      content: safeContent(newContent)
     };
 
     newHistory.push(editedMsg);
@@ -268,9 +282,14 @@ export default function StoryPage() {
 
     const newHistory = state.history.slice(0, index + 1);
 
+    const safeHistory = newHistory.map(msg => ({
+      ...msg,
+      content: safeContent(msg.content)
+    }));
+
     const newState = resetMemory({
       ...state,
-      history: newHistory
+      history: safeHistory
     });
 
     setState(newState);
@@ -283,8 +302,6 @@ export default function StoryPage() {
       <StoryPanel />
 
       <div className="flex-1 flex flex-col h-full relative shadow-[-10px_0_30px_rgba(0,0,0,0.5)] z-10">
-
-        {/* ===== 存檔讀檔按鈕 ===== */}
 
         <div className="absolute top-4 right-6 flex gap-3 z-20">
 
@@ -310,8 +327,6 @@ export default function StoryPage() {
 
         </div>
 
-        {/* 隱藏讀檔 input */}
-
         <input
           type="file"
           ref={fileInputRef}
@@ -324,22 +339,23 @@ export default function StoryPage() {
 
           <div className="max-w-full md:max-w-7xl mx-auto px-4 md:px-6">
 
-            {state.history.map((msg, i) => (
-              <MessageBubble
-                key={msg.id}
-                message={msg}
-                index={i}
-                onEdit={handleEdit}
-                onRegenerate={handleRegenerate}
-                onRewind={handleRewind}
-              />
-            ))}
+            {/* 🔥 防炸 render */}
+            {state.history
+              .filter(msg => typeof msg.content === "string")
+              .map((msg, i) => (
+                <MessageBubble
+                  key={msg.id}
+                  message={msg}
+                  index={i}
+                  onEdit={handleEdit}
+                  onRegenerate={handleRegenerate}
+                  onRewind={handleRewind}
+                />
+              ))}
 
             {state.choices && state.choices.length > 0 && !isLoading && (
               <div className="flex flex-wrap gap-3 mt-6">
-
                 {state.choices.map((choice: string, i: number) => (
-
                   <button
                     key={i}
                     onClick={() => handleSendMessage(choice)}
@@ -347,9 +363,7 @@ export default function StoryPage() {
                   >
                     {choice}
                   </button>
-
                 ))}
-
               </div>
             )}
 
