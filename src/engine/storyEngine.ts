@@ -69,19 +69,27 @@ export const safeParseAIResponse = (responseText: string) => {
 
   try {
 
-    const cleaned = responseText
-      .replace(/```json\n?|\n?```/g, "")
+    // 🔥 1. 去掉 markdown code block
+    let cleaned = responseText
+      .replace(/```json/gi, "")
+      .replace(/```/g, "")
       .trim();
 
-    const parsed = JSON.parse(cleaned);
+    // 🔥 2. 強制抓 JSON 區塊（超關鍵）
+    const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
 
-    // 🔥 基本結構保護
+    if (!jsonMatch) {
+      throw new Error("No JSON found");
+    }
+
+    const parsed = JSON.parse(jsonMatch[0]);
+
     return {
-      story: parsed.story || "（AI輸出缺失，已修正）",
-      dialogue: parsed.dialogue || "",
+      story: typeof parsed.story === "string" ? parsed.story : "（AI輸出異常）",
+      dialogue: typeof parsed.dialogue === "string" ? parsed.dialogue : "",
       state: parsed.state || {},
       memories: parsed.memories || {},
-      choices: parsed.choices || []
+      choices: Array.isArray(parsed.choices) ? parsed.choices : []
     };
 
   } catch (error) {
@@ -89,7 +97,7 @@ export const safeParseAIResponse = (responseText: string) => {
     console.error("❌ JSON parse failed:", responseText);
 
     return {
-      story: "世界線出現短暫混亂，但很快恢復了正常……",
+      story: "世界線發生短暫錯亂，但很快恢復正常……",
       dialogue: "",
       state: {},
       memories: {},
